@@ -66,7 +66,7 @@ class CardControllerTest {
     void testCreateCardFailure() throws Exception {
         CardModel card = new CardModel(TestFixture.CARD_NUMBER, TestFixture.CARD_PASSWORD);
 
-        when(cardService.createCard(any(CardModel.class))).thenThrow(new CardException.CardAlreadyExistsException());
+        when(cardService.createCard(any(CardModel.class))).thenThrow(new CardException.CardAlreadyExistsException(card));
 
         ObjectMapper objectMapper = new ObjectMapper();
         String requestBody = objectMapper.writeValueAsString(card);
