@@ -1,7 +1,5 @@
 package com.vr.miniauthorizer.model;
 
-import java.util.Objects;
-
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import jakarta.validation.constraints.NotBlank;
@@ -41,13 +39,10 @@ public record CardModel(
         String cardNumber) {
 
     /**
-     * Compact constructor — validates all fields before record instantiation.
-     *
-     * @throws NullPointerException     if {@code password} or {@code cardNumber} is null
-     * @throws IllegalArgumentException if any field is blank after null check
+     * Compact constructor — no-op body; Jakarta Validation annotations handle
+     * null/blank checks via {@code @Valid} on {@code @RequestBody}.
      */
     public CardModel {
-        Objects.requireNonNull(password, "Password cannot be null");
-        Objects.requireNonNull(cardNumber, "Card number cannot be null");
+        // Jakarta Validation annotations handle null/blank checks via @Valid on @RequestBody
     }
 }

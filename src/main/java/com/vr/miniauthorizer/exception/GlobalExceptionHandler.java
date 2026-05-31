@@ -1,8 +1,16 @@
 package com.vr.miniauthorizer.exception;
 
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import jakarta.validation.ConstraintViolationException;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -66,6 +74,39 @@ public class GlobalExceptionHandler {
     public ResponseEntity<String> handleInvalidPassword(final PasswordException exception) {
         log.warn("Invalid password. message={}", exception.getMessage());
         return ResponseEntity.unprocessableEntity().body(exception.getMessage());
+    }
+
+    /**
+     * Handles validation failures from {@code @Valid @RequestBody} constraints.
+     * Returns HTTP 400 BAD REQUEST with a map of field errors.
+     *
+     * @param exception the validation exception carrying field error details
+     * @return HTTP 400 with field name → error message map as body
+     */
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, String>> handleValidationException(
+            final MethodArgumentNotValidException exception) {
+        log.debug("Request body validation failed. errors={}", exception.getBindingResult().getErrorCount());
+        final Map<String, String> errors = exception.getBindingResult().getFieldErrors().stream()
+                .collect(Collectors.toMap(
+                        FieldError::getField,
+                        error -> error.getDefaultMessage() != null ? error.getDefaultMessage() : "Invalid value"
+                ));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errors);
+    }
+
+    /**
+     * Handles validation failures from {@code @Validated} method parameter constraints.
+     * Returns HTTP 400 BAD REQUEST with the constraint violation message.
+     *
+     * @param exception the constraint violation exception
+     * @return HTTP 400 with violation description as body
+     */
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<String> handleConstraintViolation(
+            final ConstraintViolationException exception) {
+        log.debug("Constraint violation. message={}", exception.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(exception.getMessage());
     }
 
     /**

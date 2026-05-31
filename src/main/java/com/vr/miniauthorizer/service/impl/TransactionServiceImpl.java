@@ -1,7 +1,6 @@
 package com.vr.miniauthorizer.service.impl;
 
 import java.util.Objects;
-import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -109,13 +108,11 @@ public class TransactionServiceImpl implements TransactionService {
      * @throws PasswordException if the passwords do not match
      */
     private void validatePassword(final TransactionModel transactionModel, final Card card) {
-        Optional.of(HashUtil.compareHash(transactionModel.cardPassword(), card.getPassword()))
-                .filter(isCorrect -> isCorrect)
-                .orElseThrow(() -> {
-                    log.warn("Transaction rejected — invalid password. cardNumber={}",
-                            transactionModel.cardNumber());
-                    return new PasswordException(ExceptionMessages.INVALID_PASSWORD);
-                });
+        if (!HashUtil.compareHash(transactionModel.cardPassword(), card.getPassword())) {
+            log.warn("Transaction rejected — invalid password. cardNumber={}",
+                    transactionModel.cardNumber());
+            throw new PasswordException(ExceptionMessages.INVALID_PASSWORD);
+        }
     }
 
     /**
@@ -126,12 +123,10 @@ public class TransactionServiceImpl implements TransactionService {
      * @throws BalanceException if the card balance is less than the transaction amount
      */
     private void validateBalance(final TransactionModel transactionModel, final Card card) {
-        Optional.of(card.getAmount())
-                .filter(balance -> balance.compareTo(transactionModel.amount()) >= 0)
-                .orElseThrow(() -> {
-                    log.warn("Transaction rejected — insufficient balance. cardNumber={}, balance={}, requested={}",
-                            transactionModel.cardNumber(), card.getAmount(), transactionModel.amount());
-                    return new BalanceException(ExceptionMessages.INSUFFICIENT_BALANCE);
-                });
+        if (card.getAmount().compareTo(transactionModel.amount()) < 0) {
+            log.warn("Transaction rejected — insufficient balance. cardNumber={}, balance={}, requested={}",
+                    transactionModel.cardNumber(), card.getAmount(), transactionModel.amount());
+            throw new BalanceException(ExceptionMessages.INSUFFICIENT_BALANCE);
+        }
     }
 }

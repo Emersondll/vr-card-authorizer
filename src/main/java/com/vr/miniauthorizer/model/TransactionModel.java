@@ -1,7 +1,6 @@
 package com.vr.miniauthorizer.model;
 
 import java.math.BigDecimal;
-import java.util.Objects;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -49,17 +48,10 @@ public record TransactionModel(
         BigDecimal amount) {
 
     /**
-     * Compact constructor — validates all fields before record instantiation.
-     *
-     * @throws NullPointerException     if any field is null
-     * @throws IllegalArgumentException if {@code amount} is zero or negative
+     * Compact constructor — no-op body; Jakarta Validation annotations handle
+     * null/blank/positive checks via {@code @Valid} on {@code @RequestBody}.
      */
     public TransactionModel {
-        Objects.requireNonNull(cardNumber, "Card number cannot be null");
-        Objects.requireNonNull(cardPassword, "Card password cannot be null");
-        Objects.requireNonNull(amount, "Amount cannot be null");
-        if (amount.signum() <= 0) {
-            throw new IllegalArgumentException("Amount must be positive");
-        }
+        // Jakarta Validation annotations handle null/blank/positive checks via @Valid on @RequestBody
     }
 }

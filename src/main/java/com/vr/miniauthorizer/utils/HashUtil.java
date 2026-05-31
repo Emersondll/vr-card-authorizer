@@ -1,5 +1,6 @@
 package com.vr.miniauthorizer.utils;
 
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
@@ -42,7 +43,7 @@ public final class HashUtil {
     public static String hashString(final String input) {
         try {
             final MessageDigest digest = MessageDigest.getInstance(SHA_256);
-            final byte[] encodedHash = digest.digest(input.getBytes());
+            final byte[] encodedHash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
             return Base64.getEncoder().encodeToString(encodedHash);
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException(ExceptionMessages.ERROR_WHILE_HASHING_STRING, e);
