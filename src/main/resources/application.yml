@@ -3,9 +3,9 @@ spring:
     name: miniauthorizer
   data:
     mongodb:
-      uri: mongodb://user:password@localhost:27017/miniautorizador
+      # Override via MONGODB_URI env var in Docker/production.
+      # Default targets a local MongoDB instance for development.
+      uri: ${MONGODB_URI:mongodb://user:password@localhost:27017/miniautorizador}
 
 values:
-  standardValue: "500.00"
-
-
+  standardValue: ${VALUES_STANDARD_VALUE:500.00}
