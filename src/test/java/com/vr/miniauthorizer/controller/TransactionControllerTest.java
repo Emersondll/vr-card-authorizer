@@ -1,8 +1,7 @@
 package com.vr.miniauthorizer.controller;
 
-import com.vr.miniauthorizer.model.TransactionModel;
-import com.vr.miniauthorizer.service.TransactionService;
-import com.vr.miniauthorizer.utils.ExceptionMessages;
+import java.math.BigDecimal;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,9 +10,13 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-import resources.fixtures.TestFixture;
 
-import java.math.BigDecimal;
+import com.vr.miniauthorizer.exception.BalanceException;
+import com.vr.miniauthorizer.model.TransactionModel;
+import com.vr.miniauthorizer.service.TransactionService;
+import com.vr.miniauthorizer.utils.ExceptionMessages;
+
+import resources.fixtures.TestFixture;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
@@ -24,6 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@DisplayName("TransactionController")
 class TransactionControllerTest {
 
     @Autowired
@@ -33,34 +37,36 @@ class TransactionControllerTest {
     private TransactionService transactionService;
 
     @Test
-    @DisplayName("Test Perform Transaction Success")
-    void testPerformTransactionSuccess() throws Exception {
+    @DisplayName("should perform transaction and return 201 OK when authorization passes")
+    void shouldPerformTransactionAndReturn201WhenAuthorizationPasses() throws Exception {
         doNothing().when(transactionService).performTransaction(any(TransactionModel.class));
-        TransactionModel transaction = new TransactionModel(TestFixture.CARD_NUMBER, TestFixture.CARD_PASSWORD, new BigDecimal(TestFixture.CARD_AMOUNT));
-
-        final String requestBody = TestFixture.writeJson(transaction);
+        TransactionModel transaction = new TransactionModel(
+                TestFixture.CARD_NUMBER,
+                TestFixture.CARD_PASSWORD,
+                new BigDecimal(TestFixture.CARD_AMOUNT));
 
         mockMvc.perform(post("/transacoes")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
+                        .content(TestFixture.writeJson(transaction)))
                 .andExpect(status().isCreated())
                 .andExpect(content().string("OK"));
     }
 
     @Test
-    @DisplayName("Test Perform Transaction Failure")
-    void testPerformTransactionFailure() throws Exception {
-        TransactionModel transaction = new TransactionModel(TestFixture.CARD_NUMBER, TestFixture.CARD_PASSWORD, new BigDecimal(TestFixture.CARD_AMOUNT));
-        doThrow(new RuntimeException(ExceptionMessages.INSUFFICIENT_BALANCE)).when(transactionService).performTransaction(any(TransactionModel.class));
+    @DisplayName("should return 422 with SALDO_INSUFICIENTE when balance is insufficient")
+    void shouldReturn422WithSaldoInsuficienteWhenBalanceIsInsufficient() throws Exception {
+        doThrow(new BalanceException(ExceptionMessages.INSUFFICIENT_BALANCE))
+                .when(transactionService).performTransaction(any(TransactionModel.class));
 
-        final String requestBody = TestFixture.writeJson(transaction);
+        TransactionModel transaction = new TransactionModel(
+                TestFixture.CARD_NUMBER,
+                TestFixture.CARD_PASSWORD,
+                new BigDecimal(TestFixture.CARD_AMOUNT));
 
         mockMvc.perform(post("/transacoes")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
+                        .content(TestFixture.writeJson(transaction)))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(content().string(ExceptionMessages.INSUFFICIENT_BALANCE));
     }
-
-
 }

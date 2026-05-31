@@ -1,10 +1,7 @@
 package com.vr.miniauthorizer.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.vr.miniauthorizer.exception.CardException;
-import com.vr.miniauthorizer.model.CardModel;
-import com.vr.miniauthorizer.service.CardService;
-import com.vr.miniauthorizer.utils.ExceptionMessages;
+import java.math.BigDecimal;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,9 +12,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import resources.fixtures.TestFixture;
 
-import java.math.BigDecimal;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.vr.miniauthorizer.exception.CardException;
+import com.vr.miniauthorizer.exception.GlobalExceptionHandler;
+import com.vr.miniauthorizer.model.CardModel;
+import com.vr.miniauthorizer.service.CardService;
+import com.vr.miniauthorizer.utils.ExceptionMessages;
+
+import resources.fixtures.TestFixture;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -28,6 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @ExtendWith(MockitoExtension.class)
+@DisplayName("CardController")
 class CardControllerTest {
 
     private MockMvc mockMvc;
@@ -39,19 +43,20 @@ class CardControllerTest {
     private CardController cardController;
 
     @BeforeEach
-    public void setup() {
-        mockMvc = MockMvcBuilders.standaloneSetup(cardController).build();
+    void setUp() {
+        mockMvc = MockMvcBuilders
+                .standaloneSetup(cardController)
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
     }
 
     @Test
-    @DisplayName("Test createCard Success")
-    void testCreateCardSuccess() throws Exception {
+    @DisplayName("should create card and return 201 when card does not exist")
+    void shouldCreateCardAndReturn201WhenCardDoesNotExist() throws Exception {
         CardModel card = new CardModel(TestFixture.CARD_PASSWORD, TestFixture.CARD_NUMBER);
-
         when(cardService.createCard(any(CardModel.class))).thenReturn(card);
 
-        ObjectMapper objectMapper = new ObjectMapper();
-        String requestBody = objectMapper.writeValueAsString(card);
+        String requestBody = new ObjectMapper().writeValueAsString(card);
 
         mockMvc.perform(post("/cartoes")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -62,26 +67,25 @@ class CardControllerTest {
     }
 
     @Test
-    @DisplayName("Test createCard Failure (Card Already Exists)")
-    void testCreateCardFailure() throws Exception {
-        CardModel card = new CardModel(TestFixture.CARD_NUMBER, TestFixture.CARD_PASSWORD);
+    @DisplayName("should return 422 with card body when card already exists")
+    void shouldReturn422WithCardBodyWhenCardAlreadyExists() throws Exception {
+        CardModel card = new CardModel(TestFixture.CARD_PASSWORD, TestFixture.CARD_NUMBER);
+        when(cardService.createCard(any(CardModel.class)))
+                .thenThrow(new CardException.CardAlreadyExistsException(card));
 
-        when(cardService.createCard(any(CardModel.class))).thenThrow(new CardException.CardAlreadyExistsException(card));
-
-        ObjectMapper objectMapper = new ObjectMapper();
-        String requestBody = objectMapper.writeValueAsString(card);
+        String requestBody = new ObjectMapper().writeValueAsString(card);
 
         mockMvc.perform(post("/cartoes")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
-                .andExpect(status().isUnprocessableEntity());
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.numeroCartao").value(TestFixture.CARD_NUMBER));
     }
 
     @Test
-    @DisplayName("Test checkBalance Success")
-    void testCheckBalanceSuccess() throws Exception {
+    @DisplayName("should return balance and 200 when card exists")
+    void shouldReturnBalanceAnd200WhenCardExists() throws Exception {
         BigDecimal balance = new BigDecimal(TestFixture.CARD_AMOUNT);
-
         when(cardService.checkBalance(TestFixture.CARD_NUMBER)).thenReturn(balance);
 
         mockMvc.perform(get("/cartoes/{cardNumber}", TestFixture.CARD_NUMBER))
@@ -91,9 +95,10 @@ class CardControllerTest {
     }
 
     @Test
-    @DisplayName("Test checkBalance Not Found (CardNotFoundException)")
-    void testCheckBalanceNotFound() throws Exception {
-        when(cardService.checkBalance(TestFixture.CARD_NUMBER)).thenThrow(new CardException.CardNotFoundException(ExceptionMessages.CARD_NOT_FOUND));
+    @DisplayName("should return 404 when card does not exist for balance check")
+    void shouldReturn404WhenCardDoesNotExistForBalanceCheck() throws Exception {
+        when(cardService.checkBalance(TestFixture.CARD_NUMBER))
+                .thenThrow(new CardException.CardNotFoundException(ExceptionMessages.CARD_NOT_FOUND));
 
         mockMvc.perform(get("/cartoes/{cardNumber}", TestFixture.CARD_NUMBER))
                 .andExpect(status().isNotFound());
