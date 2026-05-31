@@ -1,0 +1,85 @@
+package com.vr.miniauthorizer.exception;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import lombok.extern.slf4j.Slf4j;
+
+/**
+ * Centralized HTTP exception handler for the mini-authorizer REST API.
+ *
+ * <p>Converts domain exceptions into appropriate HTTP responses following the
+ * API contract defined in {@code openapi.yaml}. Controller-level
+ * {@code @ExceptionHandler} methods take precedence over handlers declared here
+ * when the same exception type is handled at both levels.</p>
+ *
+ * <p>Exception handling hierarchy (most specific wins):
+ * <ol>
+ *   <li>Controller-level {@code @ExceptionHandler} (declared in {@code CardController})</li>
+ *   <li>This global handler</li>
+ * </ol>
+ *
+ * @author Emerson Lima
+ * @version 1.0
+ * @since 1.0.0
+ */
+@RestControllerAdvice
+@Slf4j
+public class GlobalExceptionHandler {
+
+    /**
+     * Handles {@link CardException.CardNotFoundException} raised during transaction processing.
+     *
+     * <p>Returns HTTP 422 with the exception message ({@code "CARTAO_INEXISTENTE"}).
+     * Note: When this exception is raised from {@code CardController.checkBalance},
+     * the controller-level handler overrides this and returns HTTP 404 instead.</p>
+     *
+     * @param exception the exception carrying the reason string
+     * @return HTTP 422 UNPROCESSABLE ENTITY with the reason as plain-text body
+     */
+    @ExceptionHandler(CardException.CardNotFoundException.class)
+    public ResponseEntity<String> handleCardNotFound(final CardException.CardNotFoundException exception) {
+        log.warn("Card not found (transaction context). message={}", exception.getMessage());
+        return ResponseEntity.unprocessableEntity().body(exception.getMessage());
+    }
+
+    /**
+     * Handles {@link BalanceException} raised when a card has insufficient balance.
+     *
+     * @param exception the exception carrying {@code "SALDO_INSUFICIENTE"}
+     * @return HTTP 422 UNPROCESSABLE ENTITY with {@code "SALDO_INSUFICIENTE"} as body
+     */
+    @ExceptionHandler(BalanceException.class)
+    public ResponseEntity<String> handleInsufficientBalance(final BalanceException exception) {
+        log.warn("Insufficient balance. message={}", exception.getMessage());
+        return ResponseEntity.unprocessableEntity().body(exception.getMessage());
+    }
+
+    /**
+     * Handles {@link PasswordException} raised when card password verification fails.
+     *
+     * @param exception the exception carrying {@code "SENHA_INVALIDA"}
+     * @return HTTP 422 UNPROCESSABLE ENTITY with {@code "SENHA_INVALIDA"} as body
+     */
+    @ExceptionHandler(PasswordException.class)
+    public ResponseEntity<String> handleInvalidPassword(final PasswordException exception) {
+        log.warn("Invalid password. message={}", exception.getMessage());
+        return ResponseEntity.unprocessableEntity().body(exception.getMessage());
+    }
+
+    /**
+     * Catch-all handler for unexpected exceptions not matched by more specific handlers.
+     *
+     * <p>Logs the full stack trace at ERROR level and returns a generic message
+     * to avoid leaking internal details to clients.</p>
+     *
+     * @param exception the unexpected exception
+     * @return HTTP 500 INTERNAL SERVER ERROR with a safe generic error message
+     */
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<String> handleGenericException(final Exception exception) {
+        log.error("Unexpected error occurred", exception);
+        return ResponseEntity.internalServerError().body("An unexpected error occurred. Please try again later.");
+    }
+}
