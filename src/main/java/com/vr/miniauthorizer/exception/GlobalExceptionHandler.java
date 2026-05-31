@@ -3,12 +3,15 @@ package com.vr.miniauthorizer.exception;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import com.vr.miniauthorizer.utils.ExceptionMessages;
 
 import jakarta.validation.ConstraintViolationException;
 
@@ -107,6 +110,28 @@ public class GlobalExceptionHandler {
             final ConstraintViolationException exception) {
         log.debug("Constraint violation. message={}", exception.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(exception.getMessage());
+    }
+
+    /**
+     * Handles concurrent transaction conflicts detected by optimistic locking on {@link com.vr.miniauthorizer.document.Card}.
+     *
+     * <p>When two transactions read the same card document version and both attempt to save
+     * (decrement balance), Spring Data MongoDB rejects the second write because the stored
+     * version has already been incremented by the first. This prevents double-debit: only
+     * one of the concurrent transactions is committed.</p>
+     *
+     * <p>The rejected transaction is treated as an authorization failure equivalent to
+     * insufficient balance — the card state was changed concurrently and the transaction
+     * cannot proceed safely.</p>
+     *
+     * @param exception the optimistic locking conflict exception
+     * @return HTTP 422 UNPROCESSABLE ENTITY with {@code "SALDO_INSUFICIENTE"}
+     */
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<String> handleConcurrentModification(
+            final OptimisticLockingFailureException exception) {
+        log.warn("Concurrent transaction conflict — optimistic lock mismatch. message={}", exception.getMessage());
+        return ResponseEntity.unprocessableEntity().body(ExceptionMessages.INSUFFICIENT_BALANCE);
     }
 
     /**

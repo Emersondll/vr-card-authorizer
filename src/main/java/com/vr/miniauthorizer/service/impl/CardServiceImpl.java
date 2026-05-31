@@ -79,10 +79,11 @@ public class CardServiceImpl implements CardService {
         Objects.requireNonNull(cardModel, "CardModel cannot be null");
         log.info("Creating card. cardNumber={}", cardModel.cardNumber());
 
-        if (repository.findById(cardModel.cardNumber()).isPresent()) {
-            log.warn("Card already exists. cardNumber={}", cardModel.cardNumber());
-            throw new CardException.CardAlreadyExistsException(cardModel);
-        }
+        repository.findById(cardModel.cardNumber())
+                .ifPresent(ignored -> {
+                    log.warn("Card already exists. cardNumber={}", cardModel.cardNumber());
+                    throw new CardException.CardAlreadyExistsException(cardModel);
+                });
 
         final Card newCard = buildCardDocument(cardModel);
         repository.save(newCard);

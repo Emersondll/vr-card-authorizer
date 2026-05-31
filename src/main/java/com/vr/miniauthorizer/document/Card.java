@@ -3,6 +3,7 @@ package com.vr.miniauthorizer.document;
 import java.math.BigDecimal;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Version;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 /**
@@ -11,9 +12,9 @@ import org.springframework.data.mongodb.core.mapping.Document;
  * <p>Each card has a unique card number (used as primary key), a hashed password
  * for transaction authentication, and a current balance in BRL.</p>
  *
- * <p>Thread Safety: Instances of this class are NOT thread-safe. Concurrent
- * modifications must be coordinated via MongoDB optimistic locking or
- * service-level transactions.</p>
+ * <p>Thread Safety: Concurrent writes are protected by the {@link #version}
+ * optimistic locking field. Spring Data MongoDB rejects any {@code save()} whose
+ * version does not match the stored document, preventing double-debit scenarios.</p>
  *
  * @author Emerson Lima
  * @version 1.0
@@ -44,6 +45,16 @@ public class Card {
      * Never negative.
      */
     private BigDecimal amount;
+
+    /**
+     * Optimistic locking version counter managed exclusively by Spring Data MongoDB.
+     * Incremented on every {@code save()}. If two concurrent transactions read the
+     * same version and both attempt to write, the second write is rejected with
+     * {@code OptimisticLockingFailureException}, preventing double-debit.
+     * Must NOT be set manually.
+     */
+    @Version
+    private Long version;
 
     /**
      * Returns the unique card number (document primary key).
@@ -97,5 +108,15 @@ public class Card {
      */
     public void setAmount(final BigDecimal amount) {
         this.amount = amount;
+    }
+
+    /**
+     * Returns the optimistic locking version of this document.
+     * {@code null} before the first persistence; auto-incremented by Spring Data after each save.
+     *
+     * @return current version counter, or {@code null} before first persistence
+     */
+    public Long getVersion() {
+        return version;
     }
 }

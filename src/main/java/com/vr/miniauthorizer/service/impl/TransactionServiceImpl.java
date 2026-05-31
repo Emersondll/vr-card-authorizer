@@ -1,6 +1,7 @@
 package com.vr.miniauthorizer.service.impl;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,9 +29,10 @@ import lombok.extern.slf4j.Slf4j;
  *   <li>Atomic balance deduction and persistence</li>
  * </ul>
  *
- * <p>Thread Safety: This service is stateless. Concurrent transactions on the
- * same card are serialized at the MongoDB document level via the {@code @Transactional}
- * boundary.</p>
+ * <p>Thread Safety: This service is stateless. Concurrent transactions targeting
+ * the same card are detected via optimistic locking ({@code @Version} on {@link Card}).
+ * The second concurrent write triggers {@code OptimisticLockingFailureException},
+ * which the global handler maps to HTTP 422.</p>
  *
  * <p>Transaction Management: {@code performTransaction} runs within a single
  * transaction. Any exception causes full rollback, preventing partial balance deductions.</p>
@@ -103,30 +105,40 @@ public class TransactionServiceImpl implements TransactionService {
     /**
      * Validates that the transaction password matches the card's stored hash.
      *
+     * <p>Uses {@code Optional.filter} to avoid {@code if} — intentional trade-off
+     * to satisfy the optional challenge requirement of zero {@code if} statements.</p>
+     *
      * @param transactionModel transaction payload containing the plain-text password
      * @param card             the card document containing the stored password hash
      * @throws PasswordException if the passwords do not match
      */
     private void validatePassword(final TransactionModel transactionModel, final Card card) {
-        if (!HashUtil.compareHash(transactionModel.cardPassword(), card.getPassword())) {
-            log.warn("Transaction rejected — invalid password. cardNumber={}",
-                    transactionModel.cardNumber());
-            throw new PasswordException(ExceptionMessages.INVALID_PASSWORD);
-        }
+        Optional.of(HashUtil.compareHash(transactionModel.cardPassword(), card.getPassword()))
+                .filter(isCorrect -> isCorrect)
+                .orElseThrow(() -> {
+                    log.warn("Transaction rejected — invalid password. cardNumber={}",
+                            transactionModel.cardNumber());
+                    return new PasswordException(ExceptionMessages.INVALID_PASSWORD);
+                });
     }
 
     /**
      * Validates that the card has sufficient balance for the transaction amount.
+     *
+     * <p>Uses {@code Optional.filter} to avoid {@code if} — intentional trade-off
+     * to satisfy the optional challenge requirement of zero {@code if} statements.</p>
      *
      * @param transactionModel transaction payload containing the requested amount
      * @param card             the card document with the current balance
      * @throws BalanceException if the card balance is less than the transaction amount
      */
     private void validateBalance(final TransactionModel transactionModel, final Card card) {
-        if (card.getAmount().compareTo(transactionModel.amount()) < 0) {
-            log.warn("Transaction rejected — insufficient balance. cardNumber={}, balance={}, requested={}",
-                    transactionModel.cardNumber(), card.getAmount(), transactionModel.amount());
-            throw new BalanceException(ExceptionMessages.INSUFFICIENT_BALANCE);
-        }
+        Optional.of(card.getAmount())
+                .filter(balance -> balance.compareTo(transactionModel.amount()) >= 0)
+                .orElseThrow(() -> {
+                    log.warn("Transaction rejected — insufficient balance. cardNumber={}, balance={}, requested={}",
+                            transactionModel.cardNumber(), card.getAmount(), transactionModel.amount());
+                    return new BalanceException(ExceptionMessages.INSUFFICIENT_BALANCE);
+                });
     }
 }
