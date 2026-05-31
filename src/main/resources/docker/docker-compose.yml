@@ -1,28 +1,48 @@
-version: "3.7"
-
 services:
 
   mongo:
-    image: mongo:4.2
+    image: mongo:7.0
     hostname: mongo
-    container_name: mongo
+    container_name: miniauthorizer-mongo
+    restart: unless-stopped
     ports:
-      - 27017:27017
+      - "27017:27017"
     environment:
       MONGO_INITDB_DATABASE: miniautorizador
       MONGO_INITDB_ROOT_USERNAME: user
       MONGO_INITDB_ROOT_PASSWORD: password
     volumes:
+      - mongo_data:/data/db
       - ./scripts/init.js:/docker-entrypoint-initdb.d/init.js:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - miniauthorizer-network
 
-  # mysql:
-  #   image: mysql:5.7
-  #   hostname: mysql
-  #   container_name: mysql
-  #   restart: always
-  #   ports:
-  #     - "3306:3306"
-  #   environment:
-  #     MYSQL_DATABASE: miniautorizador
-  #     MYSQL_ROOT_PASSWORD:
-  #     MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+  app:
+    build:
+      context: ../../../..
+      dockerfile: Dockerfile
+    container_name: miniauthorizer-app
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      MONGODB_URI: mongodb://user:password@mongo:27017/miniautorizador
+      VALUES_STANDARD_VALUE: "500.00"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - miniauthorizer-network
+
+networks:
+  miniauthorizer-network:
+    driver: bridge
+
+volumes:
+  mongo_data:
