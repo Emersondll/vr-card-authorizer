@@ -137,6 +137,22 @@ Desafios (não obrigatórios):
 
 # Solução
 
+> Mini autorizador de transações de Vale Refeição/Alimentação em Spring Boot: cria cartões, consulta saldo e autoriza transações com as regras de existência do cartão, senha e saldo disponível.
+
+## Visão Geral
+
+Este repositório contém a solução do desafio técnico proposto pela VR Benefícios descrito acima: uma aplicação Spring Boot com interface REST que simula o *autorizador* de transações de cartão. Ela expõe endpoints para criar cartões (com saldo inicial de R$500,00), consultar o saldo de um cartão e autorizar transações, aplicando as regras de existência do cartão, validade da senha e disponibilidade de saldo — debitando o valor autorizado ou retornando o motivo da rejeição.
+
+## Funcionalidades
+
+* Criação de cartão com saldo inicial de R$500,00 (`POST /cartoes`).
+* Consulta de saldo de um cartão existente (`GET /cartoes/{numeroCartao}`).
+* Autorização de transações (`POST /transacoes`), validando cartão existente, senha correta e saldo suficiente, e debitando o saldo quando aprovada.
+* Persistência do cartão em MongoDB; a transação em si não é persistida.
+* Proteção contra concorrência (double-debit) via optimistic locking.
+* Solução de negócio escrita sem nenhuma instrução `if` (desafio opcional).
+* Testes automatizados (JUnit 5 + Mockito) para controllers, services e utilitários.
+
 ## Stack Tecnológica
 
 | Tecnologia | Versão | Papel |
